@@ -729,6 +729,178 @@ def clear_jupiter_api_key() -> dict:
     }
 
 
+# ============================================================================
+# Token Deployment API Keys (Pump.fun / Bags.fm)
+# ============================================================================
+
+
+def set_bags_api_key(api_key: str, partner_key: str | None = None) -> dict:
+    """
+    Save Bags.fm API key and optional partner key.
+
+    Args:
+        api_key: Bags.fm API key (from dev.bags.fm)
+        partner_key: Optional partner key for fee sharing
+
+    Returns:
+        Status dict
+    """
+    if not api_key or len(api_key) < 10:
+        return {"success": False, "error": "Invalid API key format"}
+
+    config_data = {"bags_api_key": api_key}
+    if partner_key:
+        config_data["bags_partner_key"] = partner_key
+
+    save_user_config(config_data)
+
+    return {
+        "success": True,
+        "message": "Bags.fm API key saved (encrypted)",
+        "partner_configured": bool(partner_key),
+        "capabilities": [
+            "Token launches on Bags.fm",
+            "Fee sharing configuration",
+            "Token metadata uploads",
+        ],
+    }
+
+
+def get_bags_api_key() -> str | None:
+    """
+    Get Bags.fm API key.
+
+    Priority:
+    1. BAGS_API_KEY environment variable
+    2. User's saved config (~/.slopesniper/config.enc)
+
+    Returns:
+        API key or None
+    """
+    env_key = os.environ.get("BAGS_API_KEY")
+    if env_key:
+        return env_key
+
+    config = load_user_config()
+    if config and config.get("bags_api_key"):
+        return config["bags_api_key"]
+
+    return None
+
+
+def get_bags_partner_key() -> str | None:
+    """
+    Get Bags.fm partner key for fee sharing.
+
+    Returns:
+        Partner key or None
+    """
+    env_key = os.environ.get("BAGS_PARTNER_KEY")
+    if env_key:
+        return env_key
+
+    config = load_user_config()
+    if config and config.get("bags_partner_key"):
+        return config["bags_partner_key"]
+
+    return None
+
+
+def set_pumpportal_api_key(api_key: str, linked_wallet: str | None = None) -> dict:
+    """
+    Save PumpPortal API key.
+
+    Args:
+        api_key: PumpPortal API key
+        linked_wallet: Optional linked wallet address (for reference)
+
+    Returns:
+        Status dict
+    """
+    if not api_key or len(api_key) < 10:
+        return {"success": False, "error": "Invalid API key format"}
+
+    config_data = {"pumpportal_api_key": api_key}
+    if linked_wallet:
+        config_data["pumpportal_linked_wallet"] = linked_wallet
+
+    save_user_config(config_data)
+
+    return {
+        "success": True,
+        "message": "PumpPortal API key saved (encrypted)",
+        "linked_wallet": linked_wallet,
+        "capabilities": [
+            "Token launches on Pump.fun",
+            "Lightning transactions (no local signing)",
+            "Jito bundle support",
+        ],
+        "note": "Linked wallet must have 0.02+ SOL for data API access",
+    }
+
+
+def get_pumpportal_api_key() -> str | None:
+    """
+    Get PumpPortal API key.
+
+    Priority:
+    1. PUMPPORTAL_API_KEY environment variable
+    2. User's saved config (~/.slopesniper/config.enc)
+
+    Returns:
+        API key or None
+    """
+    env_key = os.environ.get("PUMPPORTAL_API_KEY")
+    if env_key:
+        return env_key
+
+    config = load_user_config()
+    if config and config.get("pumpportal_api_key"):
+        return config["pumpportal_api_key"]
+
+    return None
+
+
+def get_pumpportal_linked_wallet() -> str | None:
+    """
+    Get PumpPortal linked wallet address.
+
+    Returns:
+        Wallet address or None
+    """
+    config = load_user_config()
+    if config and config.get("pumpportal_linked_wallet"):
+        return config["pumpportal_linked_wallet"]
+    return None
+
+
+def get_deploy_config_status() -> dict:
+    """
+    Get status of token deployment API configurations.
+
+    Returns:
+        Dict with deployment API status
+    """
+    bags_key = get_bags_api_key()
+    bags_partner = get_bags_partner_key()
+    pumpportal_key = get_pumpportal_api_key()
+    pumpportal_wallet = get_pumpportal_linked_wallet()
+
+    return {
+        "bags_fm": {
+            "configured": bool(bags_key),
+            "partner_configured": bool(bags_partner),
+            "key_preview": f"{bags_key[:10]}...{bags_key[-4:]}" if bags_key else None,
+        },
+        "pumpportal": {
+            "configured": bool(pumpportal_key),
+            "linked_wallet": pumpportal_wallet,
+            "key_preview": f"{pumpportal_key[:10]}...{pumpportal_key[-4:]}" if pumpportal_key else None,
+        },
+        "ready_to_deploy": bool(bags_key or pumpportal_key),
+    }
+
+
 # RPC Provider Configuration
 RPC_PROVIDERS = {
     "helius": "https://mainnet.helius-rpc.com/?api-key={key}",

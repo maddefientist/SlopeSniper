@@ -6,11 +6,16 @@ Provides logging and validation helpers.
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from solders.transaction import VersionedTransaction
 
 
 class Utils:
@@ -129,3 +134,64 @@ class Utils:
 
         except Exception:
             return None
+
+    @staticmethod
+    async def send_transaction(
+        tx: "VersionedTransaction",
+        rpc_url: str = "https://api.mainnet-beta.solana.com",
+    ) -> str:
+        """
+        Send a signed transaction to the Solana RPC.
+
+        Uses direct JSON-RPC via httpx to avoid solana package dependency.
+
+        Args:
+            tx: Signed VersionedTransaction
+            rpc_url: RPC endpoint URL
+
+        Returns:
+            Transaction signature
+
+        Raises:
+            ValueError: If transaction submission fails
+        """
+        import httpx
+
+        tx_bytes = bytes(tx)
+        tx_base64 = base64.b64encode(tx_bytes).decode("utf-8")
+
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "sendTransaction",
+            "params": [
+                tx_base64,
+                {
+                    "encoding": "base64",
+                    "skipPreflight": False,
+                    "preflightCommitment": "confirmed",
+                    "maxRetries": 3,
+                }
+            ]
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                rpc_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=60.0
+            )
+
+            data = response.json()
+
+            if "error" in data:
+                error = data["error"]
+                error_msg = error.get("message", str(error))
+                raise ValueError(f"Transaction failed: {error_msg}")
+
+            signature = data.get("result")
+            if not signature:
+                raise ValueError(f"No signature in response: {data}")
+
+            return signature

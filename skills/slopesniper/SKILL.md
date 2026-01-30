@@ -28,6 +28,9 @@ Trade Solana meme coins and tokens using natural language. Just tell me what you
 | "Set a target to sell BONK at $1B mcap" | Creates auto-sell target |
 | "List my targets" | Shows active sell targets |
 | "Start the daemon" | Begins background monitoring |
+| "Launch token CoolCat (CAT) with 1 SOL dev buy" | Deploys new token on Pump.fun |
+| "Deploy a meme coin about hamsters" | AI helps create token with description |
+| "Check deploy status" | Shows deployment API configuration |
 
 ## Important: Always Fetch Fresh Data
 
@@ -167,6 +170,17 @@ For trades above your auto-execute threshold, you'll be asked to confirm first.
 - `start the daemon` - Background monitoring
 - `stop the daemon` - Stop background monitoring
 
+### Token Deployment (v0.4.0+)
+- `launch a token called NAME with ticker SYMBOL` - Deploy on Pump.fun
+- `deploy token NAME (SYMBOL) with 1 SOL dev buy` - Deploy with initial buy
+- `create meme coin about dogs called DOGE2` - AI helps with description
+- `deploy status` - Check deployment API configuration
+- `setup pump deployment` - Auto-setup PumpPortal (creates wallet + API key)
+
+Token deployment supports two platforms:
+- **Pump.fun** (default) - Auto-setup available, no prior config needed
+- **Bags.fm** - Requires API key from dev.bags.fm
+
 ## CLI Commands
 
 Use the `slopesniper` CLI for direct execution:
@@ -231,6 +245,13 @@ slopesniper daemon start        # Start background target monitoring
 slopesniper daemon start --interval 15  # Custom poll interval (seconds)
 slopesniper daemon stop         # Stop daemon
 slopesniper daemon status       # Check if daemon is running
+
+# Token Deployment
+slopesniper deploy --name "Cool Cat" --symbol CAT --desc "A cool cat token" --image ./cat.png
+slopesniper deploy --name "Dog Coin" --symbol DOG --desc "For dog lovers" --image https://example.com/dog.png --dev-buy 1.0
+slopesniper deploy --name "Moon Token" --symbol MOON --desc "To the moon" --image ./moon.png --platform bags
+slopesniper deploy --status     # Check deployment API configuration
+slopesniper deploy --setup-pump # Auto-setup PumpPortal (creates wallet + API key)
 
 # Updates
 slopesniper version             # Show current version

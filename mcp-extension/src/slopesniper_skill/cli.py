@@ -29,6 +29,9 @@ Usage:
     slopesniper strategy --slippage BPS   Set slippage (e.g., 300 for 3%)
     slopesniper strategy --max-trade USD  Set max trade size
     slopesniper scan [filter]       Scan for opportunities (trending/new/graduated/pumping)
+    slopesniper deploy --name "Name" --symbol SYM --desc "..." --image path/url [--dev-buy SOL] [--platform pump|bags]
+    slopesniper deploy --status     Show deployment API configuration
+    slopesniper deploy --setup-pump Auto-setup PumpPortal (creates wallet + API key)
     slopesniper config              View current configuration
     slopesniper config --set KEY VALUE   Set config (jupiter-key, rpc-provider, rpc-url)
     slopesniper config --clear KEY       Clear config (rpc, jupiter-key)
@@ -408,6 +411,64 @@ async def cmd_scan(filter_type: str = "all") -> None:
     from . import scan_opportunities
 
     result = await scan_opportunities(filter_type)
+    print_json(result)
+
+
+async def cmd_deploy(
+    name: str,
+    symbol: str,
+    description: str,
+    image: str,
+    dev_buy_sol: float = 0.0,
+    platform: str = "auto",
+    twitter: str | None = None,
+    telegram: str | None = None,
+    website: str | None = None,
+) -> None:
+    """Deploy a new token on Pump.fun or Bags.fm."""
+    from .tools.deploy import deploy_token
+    from pathlib import Path
+
+    # Determine if image is path or URL
+    image_path = None
+    image_url = None
+
+    if image.startswith("http://") or image.startswith("https://"):
+        image_url = image
+    else:
+        image_path = image
+        if not Path(image_path).exists():
+            print_json({"success": False, "error": f"Image file not found: {image_path}"})
+            return
+
+    result = await deploy_token(
+        name=name,
+        symbol=symbol,
+        description=description,
+        image_path=image_path,
+        image_url=image_url,
+        dev_buy_sol=dev_buy_sol,
+        platform=platform,
+        twitter=twitter,
+        telegram=telegram,
+        website=website,
+    )
+    print_json(result)
+
+
+def cmd_deploy_status() -> None:
+    """Show token deployment configuration status."""
+    from .tools.deploy import get_deploy_status
+
+    result = get_deploy_status()
+    print_json(result)
+
+
+async def cmd_setup_pumpportal() -> None:
+    """Setup PumpPortal API key (auto-generates wallet)."""
+    from .tools.deploy import setup_pumpportal
+
+    result = await setup_pumpportal()
     print_json(result)
 
 
@@ -1275,6 +1336,85 @@ def main() -> None:
         elif cmd == "scan":
             filter_type = args[1] if len(args) > 1 else "all"
             asyncio.run(cmd_scan(filter_type))
+
+        elif cmd == "deploy":
+            # Parse deploy flags
+            # slopesniper deploy --name "Token" --symbol TKN --desc "Description" --image path/url --dev-buy 1.0 --platform pump|bags
+            name = None
+            symbol = None
+            description = None
+            image = None
+            dev_buy = 0.0
+            platform = "auto"
+            twitter = None
+            telegram = None
+            website = None
+
+            i = 1
+            while i < len(args):
+                arg = args[i]
+                if arg in ("--name", "-n") and i + 1 < len(args):
+                    name = args[i + 1]
+                    i += 2
+                elif arg in ("--symbol", "-s") and i + 1 < len(args):
+                    symbol = args[i + 1]
+                    i += 2
+                elif arg in ("--desc", "--description", "-d") and i + 1 < len(args):
+                    description = args[i + 1]
+                    i += 2
+                elif arg in ("--image", "-i") and i + 1 < len(args):
+                    image = args[i + 1]
+                    i += 2
+                elif arg in ("--dev-buy", "--devbuy", "-b") and i + 1 < len(args):
+                    try:
+                        dev_buy = float(args[i + 1])
+                    except ValueError:
+                        print("Error: dev-buy must be a number (SOL)")
+                        sys.exit(1)
+                    i += 2
+                elif arg in ("--platform", "-p") and i + 1 < len(args):
+                    platform = args[i + 1].lower()
+                    i += 2
+                elif arg == "--twitter" and i + 1 < len(args):
+                    twitter = args[i + 1]
+                    i += 2
+                elif arg == "--telegram" and i + 1 < len(args):
+                    telegram = args[i + 1]
+                    i += 2
+                elif arg == "--website" and i + 1 < len(args):
+                    website = args[i + 1]
+                    i += 2
+                elif arg == "--status":
+                    # Show deploy status instead
+                    cmd_deploy_status()
+                    return
+                elif arg == "--setup-pump":
+                    # Setup PumpPortal
+                    asyncio.run(cmd_setup_pumpportal())
+                    return
+                else:
+                    i += 1
+
+            # Validate required args
+            if not name or not symbol or not description or not image:
+                print("Error: deploy requires --name, --symbol, --desc, and --image")
+                print("Usage: slopesniper deploy --name 'Token' --symbol TKN --desc 'Description' --image path/url [--dev-buy SOL] [--platform pump|bags]")
+                print("\nOther commands:")
+                print("  slopesniper deploy --status        Show deployment configuration")
+                print("  slopesniper deploy --setup-pump    Setup PumpPortal (auto-generates wallet/key)")
+                sys.exit(1)
+
+            asyncio.run(cmd_deploy(
+                name=name,
+                symbol=symbol,
+                description=description,
+                image=image,
+                dev_buy_sol=dev_buy,
+                platform=platform,
+                twitter=twitter,
+                telegram=telegram,
+                website=website,
+            ))
 
         elif cmd == "config":
             # Parse config flags: --set KEY VALUE or --clear KEY
